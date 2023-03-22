@@ -15,7 +15,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinaryInst,
   params: {
     folder: "capulus",
-    format: async (req, res) => "png",
+    format: "png",
     use_filename: true,
   },
 });

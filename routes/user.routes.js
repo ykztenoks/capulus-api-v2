@@ -1,10 +1,9 @@
-import { Router } from "express";
 import bcrypt from "bcrypt";
-import { UserModel } from "../models/user.model.js";
-import { generateToken } from "../config/jwt.config.js";
-import { isAdmin } from "../middlewares/isAdmin.js";
-import { attachCurrentUser } from "../middlewares/attachCurrentUser.js";
-import mongoose from "mongoose";
+import { Router } from "express";
+import UserModel from "../models/user.model.js";
+import generateToken from "../config/jwt.config.js";
+import isAuth from "../middlewares/isAuth.js";
+import attachCurrentUser from "../middlewares/attachCurrentUser.js";
 
 const SALT_ROUNDS = 10;
 
@@ -51,7 +50,7 @@ userRouter.post("/login", async (req, res) => {
       $or: [{ email: email }, { username: username }],
     });
 
-    if (!user) {
+    if (!user || user._doc.isActive === false) {
       return res.status(400).json({ msg: "User does not exist" });
     }
 
@@ -77,4 +76,67 @@ userRouter.post("/login", async (req, res) => {
     return res.status(500).json(error);
   }
 });
+
+userRouter
+  .route("/profile")
+  .get(isAuth, attachCurrentUser, async (req, res) => {
+    try {
+      const user = req.currentUser;
+      if (!user) {
+        return res
+          .status(400)
+          .json({ msg: "you have to login to check your profile" });
+      }
+      return res.status(200).json(user);
+    } catch (error) {
+      console.log(error);
+      return res.json({ msg: `Profile error: ${error}` });
+    }
+  })
+  .put(isAuth, attachCurrentUser, async (req, res) => {
+    try {
+      const user = req.currentUser;
+
+      if (req.body.role || req.body.isActive || req.body._id) {
+        return res
+          .status(401)
+          .json({ msg: "you can't change that silly boy :)" });
+      }
+
+      if (!user) {
+        return res
+          .status(400)
+          .json({ msg: "you have to login to check your profile" });
+      }
+      const updatedUser = await UserModel.findOneAndUpdate(
+        { _id: user._id },
+        { ...req.body },
+        { runValidators: true, new: true }
+      );
+
+      delete updatedUser._doc.passwordHash;
+
+      return res
+        .status(200)
+        .json({ msg: "your profile was updated! 🎊", updatedUser });
+    } catch (error) {
+      console.log(error);
+    }
+  })
+  .delete(isAuth, attachCurrentUser, async (req, res) => {
+    try {
+      const deactivate = await UserModel.findOneAndUpdate(
+        req.currentUser._id,
+        { isActive: false },
+        { new: true, runValidators: true }
+      );
+      console.log(deactivate);
+      return res.status(200).json({
+        msg: "your account was deactivated successfully :)",
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  });
+
 export default userRouter;

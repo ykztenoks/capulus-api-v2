@@ -1,6 +1,6 @@
 import { UserModel } from "../models/user.model.js";
 
-export function isAdmin(req, res, next) {
+export default function isAdmin(req, res, next) {
   try {
     const loggedInUser = req.auth;
 
